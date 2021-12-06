@@ -1,7 +1,8 @@
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 import random
-import pprint
+from pprint import pprint
 
 app = Flask(__name__)
 
@@ -25,6 +26,11 @@ class Cafe(db.Model):
     can_take_calls = db.Column(db.Boolean, nullable=False)
     coffee_price = db.Column(db.String(250), nullable=True)
 
+    def to_dict(self):
+        dictionary = {}
+        for column in self.__table__.columns:
+            dictionary[column.name] = getattr(self, column.name)
+        return dictionary
 
 @app.route("/")
 def home():
@@ -33,24 +39,30 @@ def home():
 
 @app.route("/random")
 def get_random_cafe():
-    data = Cafe.query.all()
+    data = db.session.query(Cafe).all()
     random_data = random.choice(data)
+    return jsonify(data=random_data.to_dict())
 
-    return jsonify(data=random_data.to)
+@app.route("/all")
+def get_all_cafe():
+    data = db.session.query(Cafe).all()
+    list = []
+    for cafe in data:
+        list.append(cafe.to_dict())
+    return jsonify(list)
+
+@app.route("/search")
+def search():
+    loc = request.args.get('loc')
+    data = db.session.query(Cafe).filter(Cafe.location.like(loc)).order_by(Cafe.id).all()
+    if not data:
+        return jsonify(error={"Not Found": "Sorry, we don't have a cafe at that location."})
+    else:
+        return jsonify([cafe.to_dict() for cafe in data])
 
 
-        jsonify(data=jsonify(
-        id=random_data.id,
-        map_url=random_data.map_url,
-        img_url=random_data.img_url,
-        location=random_data.location,
-        seats=random_data.seats,
-        has_toilet=random_data.has_toilet,
-        has_wifi=random_data.has_wifi,
-        has_sockets=random_data.has_sockets,
-        can_take_calls=random_data.can_take_calls,
-        coffee_price=random_data.coffee_price
-    ).json)
+
+
 
     # random_cafe = movie_to_update = Cafe.query.get(movie_id)
 
